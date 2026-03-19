@@ -18,14 +18,17 @@
         .btn-main   { background: #2980b9; color: white; font-weight: 600; white-space: nowrap; }
         .btn-dark   { background: #34495e; color: white; }
         .btn-green  { background: #27ae60; color: white; }
-        .btn-purple { background: #8e44ad; color: white; }
-        .btn-main:hover, .btn-dark:hover, .btn-green:hover, .btn-purple:hover { opacity: .85; }
+        .btn-main:hover, .btn-dark:hover, .btn-green:hover { opacity: .85; }
         .btn-add    { background: #ecf0f1; border: 1px dashed #bbb; color: #555; width: 100%; margin-top: 6px; }
         .btn-add:hover { background: #d5e8f3; border-color: #2980b9; }
         .btn-cancel { background: #ddd; }
         .del-btn    { background: none; color: #bbb; font-size: 15px; padding: 0 3px; line-height: 1; }
         .del-btn:hover { color: #e74c3c; }
         .btn-group  { display: flex; gap: 8px; margin-top: 8px; }
+
+        /* Repo status */
+        .repo-status { font-size: 11px; color: #aaa; padding: 4px 8px; background: rgba(255,255,255,.1); border-radius: 4px; white-space: nowrap; }
+        .repo-status.ok { color: #2ecc71; }
 
         /* Board */
         .board { padding: 20px; display: flex; flex-direction: column; gap: 20px; }
@@ -34,6 +37,7 @@
         .persona-header { background: #eaf0fb; border-radius: 8px; padding: 12px; margin-bottom: 12px; cursor: pointer; display: flex; justify-content: space-between; align-items: flex-start; }
         .persona-name { font-weight: 700; font-size: 15px; display: block; }
         .persona-desc { font-size: 12px; color: #666; margin-top: 3px; display: block; }
+        .persona-desc.placeholder { color: #bbb; font-style: italic; }
 
         .outcome-container { margin: 10px 0; border-left: 3px solid #2980b9; padding-left: 12px; }
         .outcome-title { font-weight: 600; font-size: 13px; color: #2c3e50; display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
@@ -45,10 +49,6 @@
         .story-card { background: white; border: 1px solid #ddd; border-radius: 6px; padding: 8px; margin-bottom: 6px; font-size: 12px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; }
         .story-card:hover { background: #e9f5ff; border-color: #2980b9; }
 
-        /* Repo status */
-        .repo-status { font-size: 11px; color: #aaa; padding: 4px 8px; background: rgba(255,255,255,.1); border-radius: 4px; white-space: nowrap; }
-        .repo-status.ok { color: #2ecc71; }
-
         /* Modal */
         .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.5); z-index: 200; justify-content: center; align-items: center; }
         .modal-content { background: white; border-radius: 10px; padding: 24px; width: 480px; max-width: 95vw; max-height: 90vh; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
@@ -59,6 +59,7 @@
         /* Form */
         label { font-size: 12px; font-weight: 600; color: #555; }
         input[type=text], textarea { width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 6px; font-size: 13px; font-family: inherit; }
+        textarea.placeholder-active { color: #bbb; font-style: italic; }
         .mockup-preview { max-width: 100%; border-radius: 6px; margin-top: 6px; }
 
         .clickable { cursor: pointer; }
@@ -69,12 +70,9 @@
 
 <header>
     <h2>Story Mapping - ti042</h2>
-    <button class="btn-main"   onclick="addPersona()">+ New Persona</button>
-    <button class="btn-dark"   onclick="exportJSON()">💾 Download JSON</button>
-    <button class="btn-dark"   onclick="document.getElementById('importFile').click()">📂 Load JSON</button>
-    <input type="file" id="importFile" onchange="importJSON(event)">
-    <button class="btn-green"  onclick="saveToRepoFile()" title="Save to map.json in your repo">💾 Save to Repo</button>
-    <button class="btn-purple" onclick="loadFromRepoFile()" title="Load map.json from your repo">📁 Load from Repo</button>
+    <button class="btn-main" onclick="addPersona()">+ New Persona</button>
+    <button class="btn-dark" onclick="saveToRepoFile()" title="Save to a file in your repo">💾 Save</button>
+    <button class="btn-dark"  onclick="loadFromRepoFile()" title="Load from a file in your repo">📂 Load</button>
     <span class="repo-status" id="repoStatus">No repo file linked</span>
 </header>
 
@@ -119,16 +117,15 @@
         el.className = 'repo-status' + (ok ? ' ok' : '');
     }
 
-    // --- REPO SAVE / LOAD ---
+    // --- REPO SAVE / LOAD (always pick file location) ---
     async function saveToRepoFile() {
         if (!window.showSaveFilePicker) { alert('Use Chrome or Edge for this feature.'); return; }
         try {
-            if (!repoFileHandle) {
-                repoFileHandle = await window.showSaveFilePicker({ suggestedName: 'map.json', types: [{ description: 'JSON', accept: { 'application/json': ['.json'] } }] });
-                await storeHandle(repoFileHandle);
-            } else {
-                if ((await repoFileHandle.requestPermission({ mode: 'readwrite' })) !== 'granted') { alert('Write permission denied.'); return; }
-            }
+            repoFileHandle = await window.showSaveFilePicker({
+                suggestedName: repoFileHandle ? repoFileHandle.name : 'map.json',
+                types: [{ description: 'JSON', accept: { 'application/json': ['.json'] } }]
+            });
+            await storeHandle(repoFileHandle);
             const w = await repoFileHandle.createWritable();
             await w.write(JSON.stringify(data, null, 2));
             await w.close();
@@ -139,18 +136,13 @@
     async function loadFromRepoFile() {
         if (!window.showOpenFilePicker) { alert('Use Chrome or Edge for this feature.'); return; }
         try {
-            let handle;
-            if (repoFileHandle && confirm(`Reload from "${repoFileHandle.name}"?\n\nCancel to pick a different file.`)) {
-                if ((await repoFileHandle.requestPermission({ mode: 'readwrite' })) !== 'granted') { alert('Permission denied.'); return; }
-                handle = repoFileHandle;
-            } else {
-                [handle] = await window.showOpenFilePicker({ types: [{ description: 'JSON', accept: { 'application/json': ['.json'] } }] });
-                repoFileHandle = handle;
-                await storeHandle(repoFileHandle);
-            }
-            data = JSON.parse(await (await handle.getFile()).text());
+            [repoFileHandle] = await window.showOpenFilePicker({
+                types: [{ description: 'JSON', accept: { 'application/json': ['.json'] } }]
+            });
+            await storeHandle(repoFileHandle);
+            data = JSON.parse(await (await repoFileHandle.getFile()).text());
             saveData();
-            setRepoStatus(`Loaded: ${handle.name}`, true);
+            setRepoStatus(`Loaded: ${repoFileHandle.name}`, true);
         } catch(e) { if (e.name !== 'AbortError') alert('Load failed: ' + e.message); }
     }
 
@@ -158,10 +150,25 @@
     function saveData() { localStorage.setItem('storyMapData_v6', JSON.stringify(data)); render(); }
     function closeModal() { document.getElementById('editModal').style.display = 'none'; }
 
+    // --- PLACEHOLDER TEXTAREA HELPER ---
+    const PLACEHOLDER = 'Add persona description...';
+    function makePlaceholder(el) {
+        if (!el.value || el.value === PLACEHOLDER) {
+            el.value = PLACEHOLDER;
+            el.classList.add('placeholder-active');
+        }
+        el.addEventListener('focus', () => {
+            if (el.value === PLACEHOLDER) { el.value = ''; el.classList.remove('placeholder-active'); }
+        });
+        el.addEventListener('blur', () => {
+            if (!el.value.trim()) { el.value = PLACEHOLDER; el.classList.add('placeholder-active'); }
+        });
+    }
+
     // --- PERSONA ---
     function addPersona() {
         const name = prompt("Persona Name:");
-        if (name) { data.push({ id: Date.now(), name, desc: 'Add persona description...', outcomes: [] }); saveData(); }
+        if (name) { data.push({ id: Date.now(), name, desc: '', outcomes: [] }); saveData(); }
     }
     function openPersonaModal(pId) {
         const p = data.find(x => x.id === pId);
@@ -174,11 +181,13 @@
                 <button class="btn-cancel" onclick="closeModal()">Cancel</button>
             </div>`;
         document.getElementById('editModal').style.display = 'flex';
+        makePlaceholder(document.getElementById('editDesc'));
     }
     function savePersona(pId) {
         const p = data.find(x => x.id === pId);
         p.name = document.getElementById('editName').value;
-        p.desc = document.getElementById('editDesc').value;
+        const raw = document.getElementById('editDesc').value;
+        p.desc = (raw === PLACEHOLDER) ? '' : raw;
         closeModal(); saveData();
     }
 
@@ -234,8 +243,8 @@
         document.getElementById('modalBody').innerHTML = `
             <div class="modal-header"><h3>Edit Story</h3><button onclick="closeModal()">✕</button></div>
             <label>Title</label><input type="text" id="sTitle" value="${s.title}">
-            <label>Description</label><textarea id="sDesc" rows="3">${s.desc || ''}</textarea>
-            <label>Acceptance Criteria</label><textarea id="sAC" rows="4">${s.ac || ''}</textarea>
+            <label>Description</label><textarea id="sDesc" rows="3" placeholder="Add a description...">${s.desc || ''}</textarea>
+            <label>Acceptance Criteria</label><textarea id="sAC" rows="4" placeholder="Add acceptance criteria...">${s.ac || ''}</textarea>
             <label>Mockup UI</label><input type="file" accept="image/*" onchange="handleImage(event)">
             <img id="sMock" class="mockup-preview" src="${s.mockup || ''}" style="display:${s.mockup ? 'block' : 'none'}">
             <div class="btn-group">
@@ -268,17 +277,6 @@
         saveData();
     }
 
-    // --- IMPORT / EXPORT ---
-    function exportJSON() {
-        const a = Object.assign(document.createElement('a'), { href: URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })), download: 'story-map.json' });
-        a.click();
-    }
-    function importJSON(event) {
-        const reader = new FileReader();
-        reader.onload = e => { data = JSON.parse(e.target.result); saveData(); };
-        reader.readAsText(event.target.files[0]);
-    }
-
     // --- RENDER ---
     function render() {
         const board = document.getElementById('board');
@@ -286,11 +284,13 @@
         data.forEach(persona => {
             const pRow = document.createElement('div');
             pRow.className = 'persona-row';
+            const descText = persona.desc || '';
+            const isPlaceholder = !descText;
             pRow.innerHTML = `
                 <div class="persona-header">
                     <div class="clickable" onclick="openPersonaModal(${persona.id})">
                         <span class="persona-name">👤 ${persona.name}</span>
-                        <span class="persona-desc">${persona.desc}</span>
+                        <span class="persona-desc ${isPlaceholder ? 'placeholder' : ''}">${isPlaceholder ? 'Add persona description...' : descText}</span>
                     </div>
                     <button class="del-btn" onclick="deleteItem('persona',${persona.id})">×</button>
                 </div>
