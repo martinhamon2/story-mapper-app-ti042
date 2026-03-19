@@ -1,0 +1,230 @@
+:root {
+    --persona-clr: #2c3e50; --outcome-clr: #3498db; --epic-clr: #8e44ad;
+    --story-clr: #f1c40f; --danger-clr: #e74c3c; --success-clr: #2ecc71;
+}
+
+body { 
+    font-family: 'Segoe UI', sans-serif; 
+    background: #f8f9fa; 
+    margin: 0; 
+    padding: 20px; 
+}
+
+header { 
+    display: flex; 
+    gap: 10px; 
+    margin-bottom: 20px; 
+    align-items: center; 
+    background: white; 
+    padding: 15px; 
+    border-radius: 8px; 
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05); 
+}
+
+.board { 
+    display: flex; 
+    flex-direction: column; 
+    gap: 30px; 
+}
+
+.persona-row { 
+    border: 1px solid #ddd; 
+    border-radius: 10px; 
+    background: #fff; 
+    padding: 20px; 
+}
+
+/* Clickable Elements */
+.clickable { 
+    cursor: pointer; 
+    transition: opacity 0.2s; 
+}
+
+.clickable:hover { 
+    opacity: 0.8; 
+}
+
+/* Persona Styling */
+.persona-header { 
+    background: var(--persona-clr); 
+    color: white; 
+    padding: 15px; 
+    border-radius: 6px; 
+    margin-bottom: 15px; 
+    position: relative; 
+}
+
+.persona-name { 
+    font-size: 1.2em; 
+    font-weight: bold; 
+    display: block; 
+    margin-bottom: 5px; 
+}
+
+.persona-desc { 
+    font-size: 0.9em; 
+    opacity: 0.9; 
+    font-style: italic; 
+    display: block; 
+}
+
+.outcome-container { 
+    margin-bottom: 25px; 
+    border-left: 4px solid var(--outcome-clr); 
+    padding-left: 15px; 
+
+}
+.outcome-title { 
+    font-weight: bold; 
+    color: var(--outcome-clr); 
+    margin: 15px 0; font-size: 1.1em; 
+    display: flex; 
+    align-items: center; 
+    gap: 10px; 
+}
+
+.epics-grid { 
+    display: flex; 
+    gap: 15px; 
+    overflow-x: auto; 
+    align-items: flex-start; 
+    padding-bottom: 10px; 
+}
+
+.epic-column { 
+    min-width: 240px; 
+    width: 240px; 
+    background: #f1f2f6; 
+    border-radius: 6px; 
+    padding: 10px; 
+}
+
+.epic-header { 
+    background: var(--epic-clr); 
+    color: white; 
+    padding: 8px; 
+    border-radius: 4px; 
+    font-weight: bold; 
+    margin-bottom: 10px; 
+    display: flex; 
+    justify-content: space-between; 
+    align-items: center; 
+}
+
+.epic-header:hover { 
+    transform: translateY(-2px); 
+    box-shadow: 0 4px 8px rgba(0,0,0,0.15); 
+}
+
+.story-card { 
+    background: var(--story-clr); 
+    padding: 10px; 
+    margin-bottom: 8px; 
+    border-radius: 4px; 
+    font-size: 0.90em; 
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1); 
+    display: flex; 
+    justify-content: space-between; 
+    align-items: center; 
+}
+
+.story-card:hover { 
+    transform: translateY(-2px); 
+    box-shadow: 0 4px 8px rgba(0,0,0,0.15); 
+}
+
+/* Modal Styling */
+.modal-overlay { 
+    position: fixed; 
+    top: 0; 
+    left: 0; 
+    width: 100%; 
+    height: 100%; 
+    background: rgba(0,0,0,0.7); 
+    display: none; 
+    justify-content: center; 
+    align-items: center; 
+    z-index: 1000; 
+}
+
+.modal-content { 
+    background: white; 
+    padding: 30px; 
+    border-radius: 12px; 
+    width: 600px; 
+    max-height: 90vh; 
+    overflow-y: auto; 
+}
+
+.modal-header { 
+    border-bottom: 2px solid #eee; 
+    margin-bottom: 20px; 
+    padding-bottom: 10px; 
+    display: flex; 
+    justify-content: space-between; 
+    align-items: center; 
+}
+
+label { 
+    display: block; 
+    font-weight: bold; 
+    margin: 15px 0 5px; 
+    color: #555; 
+}
+
+textarea, input[type="text"] { 
+    width: 100%; 
+    padding: 10px; 
+    border: 1px solid #ccc; 
+    border-radius: 4px; 
+    box-sizing: border-box; 
+    font-family: inherit; 
+}
+
+.mockup-preview { 
+    max-width: 100%; 
+    margin-top: 10px; 
+    border: 1px solid #ddd; 
+    border-radius: 4px; 
+    display: block; 
+}
+
+button { 
+    cursor: pointer; 
+    border: none; 
+    border-radius: 4px; 
+    padding: 8px 12px; 
+}
+
+.btn-main { 
+    background: var(--success-clr); 
+    color: white; 
+    font-weight: bold; 
+}
+
+.btn-main:hover {
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+
+.btn-add { 
+    background: rgba(0,0,0,0.05); 
+    width: 100%; 
+    margin-top: 5px; 
+}
+
+.del-btn { 
+    background: transparent; 
+    color: #aeaeae; 
+    font-size: 1.2em; 
+    line-height: 1; 
+}
+
+.del-btn:hover { 
+    color: var(--danger-clr); 
+}
+
+.btn-group { 
+    margin-top: 20px; 
+    display: flex; 
+    gap: 10px; 
+}
