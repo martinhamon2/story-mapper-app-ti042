@@ -18,8 +18,7 @@
         .btn-main   { background: #2980b9; color: white; font-weight: 600; white-space: nowrap; }
         .btn-dark   { background: #34495e; color: white; }
         .btn-green  { background: #27ae60; color: white; }
-        .btn-purple { background: #8e44ad; color: white; }
-        .btn-main:hover, .btn-dark:hover, .btn-green:hover, .btn-purple:hover { opacity: .85; }
+        .btn-main:hover, .btn-dark:hover, .btn-green:hover { opacity: .85; }
         .btn-add    { background: #ecf0f1; border: 1px dashed #bbb; color: #555; width: 100%; margin-top: 6px; }
         .btn-add:hover { background: #d5e8f3; border-color: #2980b9; }
         .btn-cancel { background: #ddd; }
@@ -27,13 +26,27 @@
         .del-btn:hover { color: #e74c3c; }
         .btn-group  { display: flex; gap: 8px; margin-top: 8px; }
 
+        /* Repo status */
+        .repo-status { font-size: 11px; color: #aaa; padding: 4px 8px; background: rgba(255,255,255,.1); border-radius: 4px; white-space: nowrap; }
+        .repo-status.ok { color: #2ecc71; }
+        .repo-status.warn { color: #f39c12; }
+
+        /* Merge toast */
+        #mergeToast {
+            display: none; position: fixed; bottom: 20px; right: 20px; z-index: 999;
+            background: #2c3e50; color: white; padding: 10px 16px; border-radius: 8px;
+            font-size: 13px; box-shadow: 0 4px 12px rgba(0,0,0,.2);
+        }
+        #mergeToast.show { display: block; }
+
         /* Board */
         .board { padding: 20px; display: flex; flex-direction: column; gap: 20px; }
 
         .persona-row { background: white; border-radius: 10px; padding: 16px; box-shadow: 0 2px 8px rgba(0,0,0,.08); }
         .persona-header { background: #eaf0fb; border-radius: 8px; padding: 12px; margin-bottom: 12px; cursor: pointer; display: flex; justify-content: space-between; align-items: flex-start; }
         .persona-name { font-weight: 700; font-size: 15px; display: block; }
-        .persona-desc { font-size: 12px; color: #666; margin-top: 3px; display: block; }
+        .persona-desc { font-size: 12px; color: #aaa; margin-top: 3px; display: block; font-style: italic; }
+        .persona-desc.has-content { color: #666; font-style: normal; }
 
         .outcome-container { margin: 10px 0; border-left: 3px solid #2980b9; padding-left: 12px; }
         .outcome-title { font-weight: 600; font-size: 13px; color: #2c3e50; display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
@@ -45,10 +58,6 @@
         .story-card { background: white; border: 1px solid #ddd; border-radius: 6px; padding: 8px; margin-bottom: 6px; font-size: 12px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; }
         .story-card:hover { background: #e9f5ff; border-color: #2980b9; }
 
-        /* Repo status */
-        .repo-status { font-size: 11px; color: #aaa; padding: 4px 8px; background: rgba(255,255,255,.1); border-radius: 4px; white-space: nowrap; }
-        .repo-status.ok { color: #2ecc71; }
-
         /* Modal */
         .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.5); z-index: 200; justify-content: center; align-items: center; }
         .modal-content { background: white; border-radius: 10px; padding: 24px; width: 480px; max-width: 95vw; max-height: 90vh; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
@@ -59,26 +68,27 @@
         /* Form */
         label { font-size: 12px; font-weight: 600; color: #555; }
         input[type=text], textarea { width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 6px; font-size: 13px; font-family: inherit; }
+        textarea::placeholder, input::placeholder { color: #bbb; font-style: italic; }
         .mockup-preview { max-width: 100%; border-radius: 6px; margin-top: 6px; }
 
         .clickable { cursor: pointer; }
-        #importFile { display: none; }
     </style>
 </head>
 <body>
 
 <header>
     <h2>Story Mapping - ti042</h2>
-    <button class="btn-main"   onclick="addPersona()">+ New Persona</button>
-    <button class="btn-dark"   onclick="exportJSON()">💾 Download JSON</button>
-    <button class="btn-dark"   onclick="document.getElementById('importFile').click()">📂 Load JSON</button>
-    <input type="file" id="importFile" onchange="importJSON(event)">
-    <button class="btn-green"  onclick="saveToRepoFile()" title="Save to map.json in your repo">💾 Save to Repo</button>
-    <button class="btn-purple" onclick="loadFromRepoFile()" title="Load map.json from your repo">📁 Load from Repo</button>
+    <button class="btn-main"  onclick="addPersona()">+ New Persona</button>
+    <button class="btn-dark"  onclick="exportJSON()">💾 Download JSON</button>
+    <button class="btn-dark"  onclick="document.getElementById('importFile').click()">📂 Load JSON</button>
+    <input type="file" id="importFile" style="display:none" onchange="importJSON(event)">
+    <button class="btn-green" onclick="saveToRepoFile()" title="Save (merge) to repo file">💾 Save to Repo</button>
+    <button class="btn-dark"  onclick="loadFromRepoFile()" title="Load & merge from repo file">📂 Load from Repo</button>
     <span class="repo-status" id="repoStatus">No repo file linked</span>
 </header>
 
 <div class="board" id="board"></div>
+<div id="mergeToast"></div>
 
 <div id="editModal" class="modal-overlay">
     <div class="modal-content" id="modalBody"></div>
@@ -88,7 +98,11 @@
     let data = JSON.parse(localStorage.getItem('storyMapData_v6')) || [];
     let repoFileHandle = null;
 
-    // --- INDEXEDDB: persist file handle across refreshes ---
+    // ── TIMESTAMPS ──────────────────────────────────────────────────────────
+    // Every item carries an `updatedAt` ms timestamp so we can resolve conflicts.
+    function touch(item) { item.updatedAt = Date.now(); return item; }
+
+    // ── INDEXEDDB: persist file handle ───────────────────────────────────────
     function dbRequest(mode, action) {
         return new Promise((resolve, reject) => {
             const req = indexedDB.open('storyMapDB', 1);
@@ -108,67 +122,122 @@
             repoFileHandle = await loadStoredHandle();
             if (repoFileHandle) {
                 const perm = await repoFileHandle.queryPermission({ mode: 'readwrite' });
-                setRepoStatus(perm === 'granted' ? `Linked: ${repoFileHandle.name}` : `Re-auth needed: ${repoFileHandle.name}`, perm === 'granted');
+                setRepoStatus(perm === 'granted' ? `Linked: ${repoFileHandle.name}` : `Re-auth: ${repoFileHandle.name}`, perm === 'granted' ? 'ok' : 'warn');
             }
         } catch { repoFileHandle = null; }
     }
 
-    function setRepoStatus(msg, ok) {
+    function setRepoStatus(msg, state = '') {
         const el = document.getElementById('repoStatus');
         el.textContent = msg;
-        el.className = 'repo-status' + (ok ? ' ok' : '');
+        el.className = 'repo-status' + (state ? ' ' + state : '');
     }
 
-    // --- REPO SAVE / LOAD ---
+    // ── MERGE LOGIC ──────────────────────────────────────────────────────────
+    // Deep merge: items in `remote` that are newer or don't exist locally win.
+    // Deletions are NOT propagated (if you deleted locally, it stays deleted).
+    function mergeItems(local, remote, childKey) {
+        const merged = [...local];
+        for (const rItem of remote) {
+            const lIdx = merged.findIndex(l => l.id === rItem.id);
+            if (lIdx === -1) {
+                // New item from remote — add it
+                merged.push(rItem);
+            } else {
+                const lItem = merged[lIdx];
+                const lTime = lItem.updatedAt || 0;
+                const rTime = rItem.updatedAt || 0;
+                if (rTime > lTime) {
+                    // Remote is newer: take remote's scalar fields but keep merging children
+                    merged[lIdx] = { ...rItem };
+                }
+                // Either way, recursively merge children if they exist
+                if (childKey && merged[lIdx][childKey]) {
+                    merged[lIdx] = { ...merged[lIdx], [childKey]: mergeItems(merged[lIdx][childKey] || [], rItem[childKey] || [], childKeyFor(childKey)) };
+                }
+            }
+        }
+        return merged;
+    }
+
+    function childKeyFor(key) {
+        return key === 'outcomes' ? 'epics' : key === 'epics' ? 'stories' : null;
+    }
+
+    function mergeData(local, remote) {
+        return mergeItems(local, remote, 'outcomes');
+    }
+
+    function showToast(msg, duration = 3000) {
+        const t = document.getElementById('mergeToast');
+        t.textContent = msg;
+        t.classList.add('show');
+        setTimeout(() => t.classList.remove('show'), duration);
+    }
+
+    // ── REPO SAVE / LOAD ─────────────────────────────────────────────────────
     async function saveToRepoFile() {
         if (!window.showSaveFilePicker) { alert('Use Chrome or Edge for this feature.'); return; }
         try {
-            if (!repoFileHandle) {
-                repoFileHandle = await window.showSaveFilePicker({ suggestedName: 'map.json', types: [{ description: 'JSON', accept: { 'application/json': ['.json'] } }] });
-                await storeHandle(repoFileHandle);
-            } else {
-                if ((await repoFileHandle.requestPermission({ mode: 'readwrite' })) !== 'granted') { alert('Write permission denied.'); return; }
-            }
+            repoFileHandle = await window.showSaveFilePicker({
+                suggestedName: repoFileHandle ? repoFileHandle.name : 'map.json',
+                types: [{ description: 'JSON', accept: { 'application/json': ['.json'] } }]
+            });
+            await storeHandle(repoFileHandle);
+
+            // Read existing file content first and merge before saving
+            let fileData = [];
+            try {
+                const existing = await (await repoFileHandle.getFile()).text();
+                fileData = JSON.parse(existing);
+            } catch { /* file is new or empty */ }
+
+            const merged = mergeData(data, fileData);
+            data = merged;
+
             const w = await repoFileHandle.createWritable();
             await w.write(JSON.stringify(data, null, 2));
             await w.close();
-            setRepoStatus(`Saved: ${repoFileHandle.name}`, true);
+            saveData();
+            setRepoStatus(`Saved: ${repoFileHandle.name}`, 'ok');
+            showToast('✅ Saved & merged to repo file');
         } catch(e) { if (e.name !== 'AbortError') alert('Save failed: ' + e.message); }
     }
 
     async function loadFromRepoFile() {
         if (!window.showOpenFilePicker) { alert('Use Chrome or Edge for this feature.'); return; }
         try {
-            let handle;
-            if (repoFileHandle && confirm(`Reload from "${repoFileHandle.name}"?\n\nCancel to pick a different file.`)) {
-                if ((await repoFileHandle.requestPermission({ mode: 'readwrite' })) !== 'granted') { alert('Permission denied.'); return; }
-                handle = repoFileHandle;
-            } else {
-                [handle] = await window.showOpenFilePicker({ types: [{ description: 'JSON', accept: { 'application/json': ['.json'] } }] });
-                repoFileHandle = handle;
-                await storeHandle(repoFileHandle);
-            }
-            data = JSON.parse(await (await handle.getFile()).text());
+            [repoFileHandle] = await window.showOpenFilePicker({
+                types: [{ description: 'JSON', accept: { 'application/json': ['.json'] } }]
+            });
+            await storeHandle(repoFileHandle);
+
+            const remote = JSON.parse(await (await repoFileHandle.getFile()).text());
+            const before = data.length;
+            data = mergeData(data, remote);
+            const added = data.length - before;
+
             saveData();
-            setRepoStatus(`Loaded: ${handle.name}`, true);
+            setRepoStatus(`Loaded: ${repoFileHandle.name}`, 'ok');
+            showToast(added > 0 ? `✅ Merged — ${added} new item(s) added` : '✅ Merged — already up to date');
         } catch(e) { if (e.name !== 'AbortError') alert('Load failed: ' + e.message); }
     }
 
-    // --- DATA ---
+    // ── DATA ─────────────────────────────────────────────────────────────────
     function saveData() { localStorage.setItem('storyMapData_v6', JSON.stringify(data)); render(); }
     function closeModal() { document.getElementById('editModal').style.display = 'none'; }
 
-    // --- PERSONA ---
+    // ── PERSONA ──────────────────────────────────────────────────────────────
     function addPersona() {
         const name = prompt("Persona Name:");
-        if (name) { data.push({ id: Date.now(), name, desc: 'Add persona description...', outcomes: [] }); saveData(); }
+        if (name) { data.push(touch({ id: Date.now(), name, desc: '', outcomes: [] })); saveData(); }
     }
     function openPersonaModal(pId) {
         const p = data.find(x => x.id === pId);
         document.getElementById('modalBody').innerHTML = `
             <div class="modal-header"><h3>Edit Persona</h3><button onclick="closeModal()">✕</button></div>
             <label>Name</label><input type="text" id="editName" value="${p.name}">
-            <label>Description</label><textarea id="editDesc" rows="4">${p.desc || ''}</textarea>
+            <label>Description</label><textarea id="editDesc" rows="4" placeholder="Add a description...">${p.desc || ''}</textarea>
             <div class="btn-group">
                 <button class="btn-main" onclick="savePersona(${pId})">Save</button>
                 <button class="btn-cancel" onclick="closeModal()">Cancel</button>
@@ -179,13 +248,13 @@
         const p = data.find(x => x.id === pId);
         p.name = document.getElementById('editName').value;
         p.desc = document.getElementById('editDesc').value;
-        closeModal(); saveData();
+        touch(p); closeModal(); saveData();
     }
 
-    // --- OUTCOME ---
+    // ── OUTCOME ───────────────────────────────────────────────────────────────
     function addOutcome(pId) {
         const name = prompt("Outcome Name:");
-        if (name) { data.find(x => x.id === pId).outcomes.push({ id: Date.now(), name, epics: [] }); saveData(); }
+        if (name) { data.find(x => x.id === pId).outcomes.push(touch({ id: Date.now(), name, epics: [] })); saveData(); }
     }
     function openOutcomeModal(pId, oId) {
         const o = data.find(p => p.id === pId).outcomes.find(o => o.id === oId);
@@ -199,14 +268,15 @@
         document.getElementById('editModal').style.display = 'flex';
     }
     function saveOutcome(pId, oId) {
-        data.find(p => p.id === pId).outcomes.find(o => o.id === oId).name = document.getElementById('editOutName').value;
-        closeModal(); saveData();
+        const o = data.find(p => p.id === pId).outcomes.find(o => o.id === oId);
+        o.name = document.getElementById('editOutName').value;
+        touch(o); closeModal(); saveData();
     }
 
-    // --- EPIC ---
+    // ── EPIC ──────────────────────────────────────────────────────────────────
     function addEpic(pId, oId) {
         const name = prompt("Epic Name:");
-        if (name) { data.find(p => p.id === pId).outcomes.find(o => o.id === oId).epics.push({ id: Date.now(), name, stories: [] }); saveData(); }
+        if (name) { data.find(p => p.id === pId).outcomes.find(o => o.id === oId).epics.push(touch({ id: Date.now(), name, stories: [] })); saveData(); }
     }
     function openEpicModal(pId, oId, eId) {
         const e = data.find(p => p.id === pId).outcomes.find(o => o.id === oId).epics.find(e => e.id === eId);
@@ -220,22 +290,23 @@
         document.getElementById('editModal').style.display = 'flex';
     }
     function saveEpic(pId, oId, eId) {
-        data.find(p => p.id === pId).outcomes.find(o => o.id === oId).epics.find(e => e.id === eId).name = document.getElementById('editEpicName').value;
-        closeModal(); saveData();
+        const e = data.find(p => p.id === pId).outcomes.find(o => o.id === oId).epics.find(e => e.id === eId);
+        e.name = document.getElementById('editEpicName').value;
+        touch(e); closeModal(); saveData();
     }
 
-    // --- STORY ---
+    // ── STORY ─────────────────────────────────────────────────────────────────
     function addStory(pId, oId, eId) {
         const title = prompt("Story Title:");
-        if (title) { data.find(p => p.id === pId).outcomes.find(o => o.id === oId).epics.find(e => e.id === eId).stories.push({ id: Date.now(), title, desc: '', ac: '', mockup: '' }); saveData(); }
+        if (title) { data.find(p => p.id === pId).outcomes.find(o => o.id === oId).epics.find(e => e.id === eId).stories.push(touch({ id: Date.now(), title, desc: '', ac: '', mockup: '' })); saveData(); }
     }
     function openStoryModal(pId, oId, eId, sId) {
         const s = data.find(p => p.id === pId).outcomes.find(o => o.id === oId).epics.find(e => e.id === eId).stories.find(s => s.id === sId);
         document.getElementById('modalBody').innerHTML = `
             <div class="modal-header"><h3>Edit Story</h3><button onclick="closeModal()">✕</button></div>
             <label>Title</label><input type="text" id="sTitle" value="${s.title}">
-            <label>Description</label><textarea id="sDesc" rows="3">${s.desc || ''}</textarea>
-            <label>Acceptance Criteria</label><textarea id="sAC" rows="4">${s.ac || ''}</textarea>
+            <label>Description</label><textarea id="sDesc" rows="3" placeholder="Add a description...">${s.desc || ''}</textarea>
+            <label>Acceptance Criteria</label><textarea id="sAC" rows="4" placeholder="Add acceptance criteria...">${s.ac || ''}</textarea>
             <label>Mockup UI</label><input type="file" accept="image/*" onchange="handleImage(event)">
             <img id="sMock" class="mockup-preview" src="${s.mockup || ''}" style="display:${s.mockup ? 'block' : 'none'}">
             <div class="btn-group">
@@ -255,20 +326,10 @@
         s.desc   = document.getElementById('sDesc').value;
         s.ac     = document.getElementById('sAC').value;
         s.mockup = document.getElementById('sMock').src;
-        closeModal(); saveData();
+        touch(s); closeModal(); saveData();
     }
 
-    // --- DELETE ---
-    function deleteItem(type, pId, oId, eId, sId) {
-        if (!confirm("Delete this?")) return;
-        if      (type === 'persona') data = data.filter(p => p.id !== pId);
-        else if (type === 'outcome') data.find(p => p.id === pId).outcomes = data.find(p => p.id === pId).outcomes.filter(o => o.id !== oId);
-        else if (type === 'epic')    data.find(p => p.id === pId).outcomes.find(o => o.id === oId).epics = data.find(p => p.id === pId).outcomes.find(o => o.id === oId).epics.filter(e => e.id !== eId);
-        else                         data.find(p => p.id === pId).outcomes.find(o => o.id === oId).epics.find(e => e.id === eId).stories = data.find(p => p.id === pId).outcomes.find(o => o.id === oId).epics.find(e => e.id === eId).stories.filter(s => s.id !== sId);
-        saveData();
-    }
-
-    // --- IMPORT / EXPORT ---
+    // ── IMPORT / EXPORT ───────────────────────────────────────────────────────
     function exportJSON() {
         const a = Object.assign(document.createElement('a'), { href: URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })), download: 'story-map.json' });
         a.click();
@@ -279,7 +340,17 @@
         reader.readAsText(event.target.files[0]);
     }
 
-    // --- RENDER ---
+    // ── DELETE ────────────────────────────────────────────────────────────────
+    function deleteItem(type, pId, oId, eId, sId) {
+        if (!confirm("Delete this?")) return;
+        if      (type === 'persona') data = data.filter(p => p.id !== pId);
+        else if (type === 'outcome') data.find(p => p.id === pId).outcomes = data.find(p => p.id === pId).outcomes.filter(o => o.id !== oId);
+        else if (type === 'epic')    data.find(p => p.id === pId).outcomes.find(o => o.id === oId).epics = data.find(p => p.id === pId).outcomes.find(o => o.id === oId).epics.filter(e => e.id !== eId);
+        else                         data.find(p => p.id === pId).outcomes.find(o => o.id === oId).epics.find(e => e.id === eId).stories = data.find(p => p.id === pId).outcomes.find(o => o.id === oId).epics.find(e => e.id === eId).stories.filter(s => s.id !== sId);
+        saveData();
+    }
+
+    // ── RENDER ────────────────────────────────────────────────────────────────
     function render() {
         const board = document.getElementById('board');
         board.innerHTML = '';
@@ -290,7 +361,7 @@
                 <div class="persona-header">
                     <div class="clickable" onclick="openPersonaModal(${persona.id})">
                         <span class="persona-name">👤 ${persona.name}</span>
-                        <span class="persona-desc">${persona.desc}</span>
+                        <span class="persona-desc ${persona.desc ? 'has-content' : ''}">${persona.desc || 'Add a description...'}</span>
                     </div>
                     <button class="del-btn" onclick="deleteItem('persona',${persona.id})">×</button>
                 </div>
