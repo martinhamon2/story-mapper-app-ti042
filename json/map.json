@@ -45,12 +45,70 @@
           {
             "id": 1773923236157,
             "name": "Lecturers + Courses bekijken",
-            "stories": []
+            "stories": [
+              {
+                "id": 1773924177452,
+                "title": "Kan op Lecturers pagina clicken.",
+                "desc": "",
+                "ac": "",
+                "mockup": ""
+              },
+              {
+                "id": 1773924186068,
+                "title": "Ziet alle Lecturers.",
+                "desc": "",
+                "ac": "",
+                "mockup": "http://127.0.0.1:5500/index.html"
+              },
+              {
+                "id": 1773924281364,
+                "title": "Kan op een Lecturer clicken.",
+                "desc": "",
+                "ac": "",
+                "mockup": ""
+              },
+              {
+                "id": 1773924294140,
+                "title": "Ziet alle Lecturers met hun Courses.",
+                "desc": "",
+                "ac": "",
+                "mockup": ""
+              }
+            ]
           },
           {
             "id": 1773923292723,
             "name": "Uitloggen",
-            "stories": []
+            "stories": [
+              {
+                "id": 1773924313692,
+                "title": "Moet ingeloged zijn.",
+                "desc": "",
+                "ac": "",
+                "mockup": ""
+              },
+              {
+                "id": 1773924326411,
+                "title": "Kan op de Logout knop drukken.",
+                "desc": "",
+                "ac": "",
+                "mockup": ""
+              },
+              {
+                "id": 1773924341069,
+                "title": "Wort uitgeloged.",
+                "desc": "",
+                "ac": "",
+                "mockup": ""
+              },
+              {
+                "id": 1773924355984,
+                "title": "Wort naar Home screen gestuured",
+                "desc": "",
+                "ac": "",
+                "mockup": ""
+              }
+            ]
           }
         ]
       },
