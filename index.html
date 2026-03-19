@@ -125,42 +125,76 @@
     }
 
     // ── MERGE LOGIC ───────────────────────────────────────────────────────────
-    // Rules:
-    //   • New items (by id) in remote → added
-    //   • Conflicting items → newer updatedAt wins for scalar fields
-    //   • Children are always recursively merged (never clobbered)
-    //   • Local deletions are respected (deleted item won't reappear unless remote has newer updatedAt)
+    // Idempotent merge: running the same files through N times = same result.
+    //
+    // Deduplication uses TWO layers:
+    //   1. id match  → same object, resolve with updatedAt (last-write wins)
+    //   2. content fingerprint → catches items created independently with
+    //      different ids but identical text (e.g. two people added "Login" story)
+    //      The OLDER id is kept so future merges stay stable.
+    //
+    // Children are always recursively merged.
 
     function childKeyFor(key) {
         return key === 'outcomes' ? 'epics' : key === 'epics' ? 'stories' : null;
     }
 
+    // Stable fingerprint of an item's user-visible text fields (ignores id/timestamps/children)
+    function fingerprint(item, childKey) {
+        const { id, updatedAt, [childKey]: _c, ...fields } = item;
+        return JSON.stringify(fields).toLowerCase().trim();
+    }
+
     function mergeItems(local, remote, childKey) {
-        const merged = local.map(i => ({ ...i })); // shallow clone each item
+        const merged = local.map(i => ({ ...i }));
+
         for (const rItem of remote) {
-            const lIdx = merged.findIndex(l => l.id === rItem.id);
-            if (lIdx === -1) {
-                merged.push({ ...rItem });
-            } else {
-                const lItem = merged[lIdx];
-                const lTime = lItem.updatedAt || 0;
-                const rTime = rItem.updatedAt || 0;
-                // Take whichever scalar fields are newer
-                if (rTime > lTime) {
+            // 1. Try id match first
+            const byId = merged.findIndex(l => l.id === rItem.id);
+            if (byId !== -1) {
+                const lItem = merged[byId];
+                // Newer scalar fields win
+                if ((rItem.updatedAt || 0) > (lItem.updatedAt || 0)) {
                     const { [childKey]: _rc, ...rScalars } = rItem;
-                    merged[lIdx] = { ...lItem, ...rScalars };
+                    merged[byId] = { ...lItem, ...rScalars };
                 }
-                // Always recursively merge children
+                // Always merge children recursively
                 if (childKey) {
-                    const next = childKeyFor(childKey);
-                    merged[lIdx][childKey] = mergeItems(
-                        merged[lIdx][childKey] || [],
+                    merged[byId][childKey] = mergeItems(
+                        merged[byId][childKey] || [],
                         rItem[childKey] || [],
-                        next
+                        childKeyFor(childKey)
                     );
                 }
+                continue;
             }
+
+            // 2. No id match — check for a content duplicate
+            const rFp = fingerprint(rItem, childKey);
+            const byContent = merged.findIndex(l => fingerprint(l, childKey) === rFp);
+            if (byContent !== -1) {
+                // Same content, different id → keep whichever id is older (smaller) for stability,
+                // take scalar fields from whichever is newer
+                const lItem = merged[byContent];
+                const keepId = Math.min(lItem.id, rItem.id);
+                const newerItem = (rItem.updatedAt || 0) > (lItem.updatedAt || 0) ? rItem : lItem;
+                const { [childKey]: _rc, ...newerScalars } = newerItem;
+                merged[byContent] = { ...lItem, ...newerScalars, id: keepId };
+                // Still merge children
+                if (childKey) {
+                    merged[byContent][childKey] = mergeItems(
+                        lItem[childKey] || [],
+                        rItem[childKey] || [],
+                        childKeyFor(childKey)
+                    );
+                }
+                continue;
+            }
+
+            // 3. Genuinely new item
+            merged.push({ ...rItem });
         }
+
         return merged;
     }
 
@@ -215,12 +249,12 @@
             if (!datasets.length) { showToast('⚠️ No valid map files found.'); return; }
 
             // Always include current working data in the merge
-            const before = JSON.stringify(data);
+            const beforeIds = new Set(data.map(p => p.id));
             data = mergeAll([data, ...datasets]);
-            const changed = JSON.stringify(data) !== before;
+            const added = data.filter(p => !beforeIds.has(p.id)).length;
 
             saveData();
-            showToast(`✅ Merged ${datasets.length} file(s): ${names.join(', ')}${changed ? '' : ' — already up to date'}`);
+            showToast(`✅ Merged ${datasets.length} file(s) — ${added > 0 ? `${added} new persona(s) added` : 'no duplicates, already up to date'}`);
         } catch(e) { if (e.name !== 'AbortError') alert('Merge failed: ' + e.message); }
     }
 
