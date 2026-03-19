@@ -1,8 +1,59 @@
 [
   {
-    "id": 1773923779133,
-    "name": "test",
+    "id": 1773923133578,
+    "name": "Student",
     "desc": "Add persona description...",
-    "outcomes": []
+    "outcomes": [
+      {
+        "id": 1773923213042,
+        "name": "Kan inloggen en zien welke Lecturer welke course geeft.",
+        "epics": [
+          {
+            "id": 1773923224271,
+            "name": "Inloggen",
+            "stories": [
+              {
+                "id": 1773923359223,
+                "title": "Kan op login pagina geraken.",
+                "desc": "",
+                "ac": "",
+                "mockup": "http://127.0.0.1:5500/index.html"
+              },
+              {
+                "id": 1773923371530,
+                "title": "Kan username en passwoord invullen.",
+                "desc": "",
+                "ac": "",
+                "mockup": "http://127.0.0.1:5500/index.html"
+              },
+              {
+                "id": 1773923386110,
+                "title": "Kan op loggin knop drukken.",
+                "desc": "Dit is een test\n",
+                "ac": "",
+                "mockup": "http://127.0.0.1:5500/index.html"
+              },
+              {
+                "id": 1773923395419,
+                "title": "Wordt ingelogt.",
+                "desc": "",
+                "ac": "",
+                "mockup": ""
+              }
+            ]
+          },
+          {
+            "id": 1773923236157,
+            "name": "Lecturers + Courses bekijken",
+            "stories": []
+          },
+          {
+            "id": 1773923292723,
+            "name": "Uitloggen",
+            "stories": []
+          }
+        ]
+      }
+    ]
   }
 ]
