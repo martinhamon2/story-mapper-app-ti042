@@ -3,7 +3,27 @@
     "id": 1773925504260,
     "name": "Lecturer",
     "desc": "",
-    "outcomes": [],
+    "outcomes": [
+      {
+        "id": 1773925636160,
+        "name": "Kan inloggen en kijken welke lecturers welke courses geven. Kan zijn eigen Schedule bekijken.",
+        "epics": [
+          {
+            "id": 1773925712550,
+            "name": "Inloggen",
+            "stories": [],
+            "updatedAt": 1773925712550
+          },
+          {
+            "id": 1773925840287,
+            "name": "Lecturers bekijken + Courses beijken en geven",
+            "stories": [],
+            "updatedAt": 1773925840287
+          }
+        ],
+        "updatedAt": 1773925636160
+      }
+    ],
     "updatedAt": 1773925504260
   }
 ]
