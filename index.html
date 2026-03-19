@@ -16,9 +16,10 @@
         /* Buttons */
         button { cursor: pointer; border: none; border-radius: 6px; padding: 7px 13px; font-size: 13px; font-family: inherit; }
         .btn-main   { background: #2980b9; color: white; font-weight: 600; white-space: nowrap; }
-        .btn-dark   { background: #34495e; color: white; }
-        .btn-green  { background: #27ae60; color: white; }
-        .btn-main:hover, .btn-dark:hover, .btn-green:hover { opacity: .85; }
+        .btn-dark   { background: #34495e; color: white; white-space: nowrap; }
+        .btn-green  { background: #27ae60; color: white; white-space: nowrap; }
+        .btn-orange { background: #e67e22; color: white; white-space: nowrap; }
+        .btn-main:hover, .btn-dark:hover, .btn-green:hover, .btn-orange:hover { opacity: .85; }
         .btn-add    { background: #ecf0f1; border: 1px dashed #bbb; color: #555; width: 100%; margin-top: 6px; }
         .btn-add:hover { background: #d5e8f3; border-color: #2980b9; }
         .btn-cancel { background: #ddd; }
@@ -26,18 +27,16 @@
         .del-btn:hover { color: #e74c3c; }
         .btn-group  { display: flex; gap: 8px; margin-top: 8px; }
 
-        /* Repo status */
-        .repo-status { font-size: 11px; color: #aaa; padding: 4px 8px; background: rgba(255,255,255,.1); border-radius: 4px; white-space: nowrap; }
-        .repo-status.ok { color: #2ecc71; }
-        .repo-status.warn { color: #f39c12; }
+        /* Header divider */
+        .sep { width: 1px; height: 24px; background: rgba(255,255,255,.2); flex-shrink: 0; }
 
-        /* Merge toast */
-        #mergeToast {
+        /* Toast */
+        #toast {
             display: none; position: fixed; bottom: 20px; right: 20px; z-index: 999;
             background: #2c3e50; color: white; padding: 10px 16px; border-radius: 8px;
-            font-size: 13px; box-shadow: 0 4px 12px rgba(0,0,0,.2);
+            font-size: 13px; box-shadow: 0 4px 12px rgba(0,0,0,.25); max-width: 320px;
         }
-        #mergeToast.show { display: block; }
+        #toast.show { display: block; }
 
         /* Board */
         .board { padding: 20px; display: flex; flex-direction: column; gap: 20px; }
@@ -45,8 +44,9 @@
         .persona-row { background: white; border-radius: 10px; padding: 16px; box-shadow: 0 2px 8px rgba(0,0,0,.08); }
         .persona-header { background: #eaf0fb; border-radius: 8px; padding: 12px; margin-bottom: 12px; cursor: pointer; display: flex; justify-content: space-between; align-items: flex-start; }
         .persona-name { font-weight: 700; font-size: 15px; display: block; }
-        .persona-desc { font-size: 12px; color: #aaa; margin-top: 3px; display: block; font-style: italic; }
-        .persona-desc.has-content { color: #666; font-style: normal; }
+        .persona-desc { font-size: 12px; margin-top: 3px; display: block; }
+        .persona-desc.empty { color: #bbb; font-style: italic; }
+        .persona-desc.filled { color: #666; }
 
         .outcome-container { margin: 10px 0; border-left: 3px solid #2980b9; padding-left: 12px; }
         .outcome-title { font-weight: 600; font-size: 13px; color: #2c3e50; display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
@@ -72,23 +72,29 @@
         .mockup-preview { max-width: 100%; border-radius: 6px; margin-top: 6px; }
 
         .clickable { cursor: pointer; }
+        #importFile { display: none; }
     </style>
 </head>
 <body>
 
 <header>
     <h2>Story Mapping - ti042</h2>
-    <button class="btn-main"  onclick="addPersona()">+ New Persona</button>
+
+    <!-- Classic import/export -->
     <button class="btn-dark"  onclick="exportJSON()">💾 Download JSON</button>
     <button class="btn-dark"  onclick="document.getElementById('importFile').click()">📂 Load JSON</button>
     <input type="file" id="importFile" style="display:none" onchange="importJSON(event)">
-    <button class="btn-green" onclick="saveToRepoFile()" title="Save (merge) to repo file">💾 Save to Repo</button>
-    <button class="btn-dark"  onclick="loadFromRepoFile()" title="Load & merge from repo file">📂 Load from Repo</button>
-    <span class="repo-status" id="repoStatus">No repo file linked</span>
+
+    <div class="sep"></div>
+
+    <!-- Versioned collab -->
+    <button class="btn-main"  onclick="addPersona()">+ New Persona</button>
+    <button class="btn-green" onclick="saveVersion()"    title="Save a new uniquely-named version to a folder">💾 Save My Version</button>
+    <button class="btn-orange" onclick="mergeAllFromFolder()" title="Pick a folder and merge all map-*.json files in it">🔀 Merge All</button>
 </header>
 
 <div class="board" id="board"></div>
-<div id="mergeToast"></div>
+<div id="toast"></div>
 
 <div id="editModal" class="modal-overlay">
     <div class="modal-content" id="modalBody"></div>
@@ -96,138 +102,147 @@
 
 <script>
     let data = JSON.parse(localStorage.getItem('storyMapData_v6')) || [];
-    let repoFileHandle = null;
 
-    // ── TIMESTAMPS ──────────────────────────────────────────────────────────
-    // Every item carries an `updatedAt` ms timestamp so we can resolve conflicts.
+    // ── UTILS ─────────────────────────────────────────────────────────────────
     function touch(item) { item.updatedAt = Date.now(); return item; }
 
-    // ── INDEXEDDB: persist file handle ───────────────────────────────────────
-    function dbRequest(mode, action) {
-        return new Promise((resolve, reject) => {
-            const req = indexedDB.open('storyMapDB', 1);
-            req.onupgradeneeded = e => e.target.result.createObjectStore('handles');
-            req.onsuccess = e => {
-                const tx = e.target.result.transaction('handles', mode);
-                action(tx.objectStore('handles'), resolve, reject);
-            };
-            req.onerror = () => resolve(null);
-        });
-    }
-    const storeHandle      = h => dbRequest('readwrite', (store, res, rej) => { const r = store.put(h, 'repoFile'); r.onsuccess = res; r.onerror = rej; });
-    const loadStoredHandle = () => dbRequest('readonly',  (store, res) => { const r = store.get('repoFile'); r.onsuccess = () => res(r.result || null); r.onerror = () => res(null); });
-
-    async function initRepoHandle() {
-        try {
-            repoFileHandle = await loadStoredHandle();
-            if (repoFileHandle) {
-                const perm = await repoFileHandle.queryPermission({ mode: 'readwrite' });
-                setRepoStatus(perm === 'granted' ? `Linked: ${repoFileHandle.name}` : `Re-auth: ${repoFileHandle.name}`, perm === 'granted' ? 'ok' : 'warn');
-            }
-        } catch { repoFileHandle = null; }
+    function randId() {
+        return Math.random().toString(36).slice(2, 6).toUpperCase();
     }
 
-    function setRepoStatus(msg, state = '') {
-        const el = document.getElementById('repoStatus');
-        el.textContent = msg;
-        el.className = 'repo-status' + (state ? ' ' + state : '');
+    function versionedFilename() {
+        const now = new Date();
+        const ts = now.toISOString().replace(/[-:T]/g, '').slice(0, 12); // YYYYMMDDHHmm
+        return `map-${ts}-${randId()}.json`;
     }
 
-    // ── MERGE LOGIC ──────────────────────────────────────────────────────────
-    // Deep merge: items in `remote` that are newer or don't exist locally win.
-    // Deletions are NOT propagated (if you deleted locally, it stays deleted).
+    function showToast(msg, duration = 4000) {
+        const t = document.getElementById('toast');
+        t.textContent = msg;
+        t.classList.add('show');
+        clearTimeout(t._timer);
+        t._timer = setTimeout(() => t.classList.remove('show'), duration);
+    }
+
+    // ── MERGE LOGIC ───────────────────────────────────────────────────────────
+    // Rules:
+    //   • New items (by id) in remote → added
+    //   • Conflicting items → newer updatedAt wins for scalar fields
+    //   • Children are always recursively merged (never clobbered)
+    //   • Local deletions are respected (deleted item won't reappear unless remote has newer updatedAt)
+
+    function childKeyFor(key) {
+        return key === 'outcomes' ? 'epics' : key === 'epics' ? 'stories' : null;
+    }
+
     function mergeItems(local, remote, childKey) {
-        const merged = [...local];
+        const merged = local.map(i => ({ ...i })); // shallow clone each item
         for (const rItem of remote) {
             const lIdx = merged.findIndex(l => l.id === rItem.id);
             if (lIdx === -1) {
-                // New item from remote — add it
-                merged.push(rItem);
+                merged.push({ ...rItem });
             } else {
                 const lItem = merged[lIdx];
                 const lTime = lItem.updatedAt || 0;
                 const rTime = rItem.updatedAt || 0;
+                // Take whichever scalar fields are newer
                 if (rTime > lTime) {
-                    // Remote is newer: take remote's scalar fields but keep merging children
-                    merged[lIdx] = { ...rItem };
+                    const { [childKey]: _rc, ...rScalars } = rItem;
+                    merged[lIdx] = { ...lItem, ...rScalars };
                 }
-                // Either way, recursively merge children if they exist
-                if (childKey && merged[lIdx][childKey]) {
-                    merged[lIdx] = { ...merged[lIdx], [childKey]: mergeItems(merged[lIdx][childKey] || [], rItem[childKey] || [], childKeyFor(childKey)) };
+                // Always recursively merge children
+                if (childKey) {
+                    const next = childKeyFor(childKey);
+                    merged[lIdx][childKey] = mergeItems(
+                        merged[lIdx][childKey] || [],
+                        rItem[childKey] || [],
+                        next
+                    );
                 }
             }
         }
         return merged;
     }
 
-    function childKeyFor(key) {
-        return key === 'outcomes' ? 'epics' : key === 'epics' ? 'stories' : null;
-    }
-
     function mergeData(local, remote) {
         return mergeItems(local, remote, 'outcomes');
     }
 
-    function showToast(msg, duration = 3000) {
-        const t = document.getElementById('mergeToast');
-        t.textContent = msg;
-        t.classList.add('show');
-        setTimeout(() => t.classList.remove('show'), duration);
+    function mergeAll(datasets) {
+        return datasets.reduce((acc, cur) => mergeData(acc, cur), []);
     }
 
-    // ── REPO SAVE / LOAD ─────────────────────────────────────────────────────
-    async function saveToRepoFile() {
+    // ── VERSIONED SAVE ────────────────────────────────────────────────────────
+    async function saveVersion() {
         if (!window.showSaveFilePicker) { alert('Use Chrome or Edge for this feature.'); return; }
         try {
-            repoFileHandle = await window.showSaveFilePicker({
-                suggestedName: repoFileHandle ? repoFileHandle.name : 'map.json',
+            const handle = await window.showSaveFilePicker({
+                suggestedName: versionedFilename(),
                 types: [{ description: 'JSON', accept: { 'application/json': ['.json'] } }]
             });
-            await storeHandle(repoFileHandle);
-
-            // Read existing file content first and merge before saving
-            let fileData = [];
-            try {
-                const existing = await (await repoFileHandle.getFile()).text();
-                fileData = JSON.parse(existing);
-            } catch { /* file is new or empty */ }
-
-            const merged = mergeData(data, fileData);
-            data = merged;
-
-            const w = await repoFileHandle.createWritable();
+            const w = await handle.createWritable();
             await w.write(JSON.stringify(data, null, 2));
             await w.close();
-            saveData();
-            setRepoStatus(`Saved: ${repoFileHandle.name}`, 'ok');
-            showToast('✅ Saved & merged to repo file');
+            showToast(`✅ Saved as: ${handle.name}`);
         } catch(e) { if (e.name !== 'AbortError') alert('Save failed: ' + e.message); }
     }
 
-    async function loadFromRepoFile() {
+    // ── MERGE ALL FROM FOLDER ─────────────────────────────────────────────────
+    async function mergeAllFromFolder() {
         if (!window.showOpenFilePicker) { alert('Use Chrome or Edge for this feature.'); return; }
         try {
-            [repoFileHandle] = await window.showOpenFilePicker({
-                types: [{ description: 'JSON', accept: { 'application/json': ['.json'] } }]
+            // Let user pick all the map JSON files at once (multi-select)
+            const handles = await window.showOpenFilePicker({
+                multiple: true,
+                types: [{ description: 'JSON Files', accept: { 'application/json': ['.json'] } }]
             });
-            await storeHandle(repoFileHandle);
 
-            const remote = JSON.parse(await (await repoFileHandle.getFile()).text());
-            const before = data.length;
-            data = mergeData(data, remote);
-            const added = data.length - before;
+            if (!handles.length) return;
+
+            const datasets = [];
+            const names = [];
+            for (const h of handles) {
+                try {
+                    const text = await (await h.getFile()).text();
+                    const parsed = JSON.parse(text);
+                    if (Array.isArray(parsed)) {
+                        datasets.push(parsed);
+                        names.push(h.name);
+                    }
+                } catch { /* skip invalid files */ }
+            }
+
+            if (!datasets.length) { showToast('⚠️ No valid map files found.'); return; }
+
+            // Always include current working data in the merge
+            const before = JSON.stringify(data);
+            data = mergeAll([data, ...datasets]);
+            const changed = JSON.stringify(data) !== before;
 
             saveData();
-            setRepoStatus(`Loaded: ${repoFileHandle.name}`, 'ok');
-            showToast(added > 0 ? `✅ Merged — ${added} new item(s) added` : '✅ Merged — already up to date');
-        } catch(e) { if (e.name !== 'AbortError') alert('Load failed: ' + e.message); }
+            showToast(`✅ Merged ${datasets.length} file(s): ${names.join(', ')}${changed ? '' : ' — already up to date'}`);
+        } catch(e) { if (e.name !== 'AbortError') alert('Merge failed: ' + e.message); }
     }
 
-    // ── DATA ─────────────────────────────────────────────────────────────────
+    // ── CLASSIC IMPORT / EXPORT ───────────────────────────────────────────────
+    function exportJSON() {
+        const a = Object.assign(document.createElement('a'), {
+            href: URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })),
+            download: 'story-map.json'
+        });
+        a.click();
+    }
+    function importJSON(event) {
+        const reader = new FileReader();
+        reader.onload = e => { data = JSON.parse(e.target.result); saveData(); };
+        reader.readAsText(event.target.files[0]);
+    }
+
+    // ── DATA ──────────────────────────────────────────────────────────────────
     function saveData() { localStorage.setItem('storyMapData_v6', JSON.stringify(data)); render(); }
     function closeModal() { document.getElementById('editModal').style.display = 'none'; }
 
-    // ── PERSONA ──────────────────────────────────────────────────────────────
+    // ── PERSONA ───────────────────────────────────────────────────────────────
     function addPersona() {
         const name = prompt("Persona Name:");
         if (name) { data.push(touch({ id: Date.now(), name, desc: '', outcomes: [] })); saveData(); }
@@ -329,17 +344,6 @@
         touch(s); closeModal(); saveData();
     }
 
-    // ── IMPORT / EXPORT ───────────────────────────────────────────────────────
-    function exportJSON() {
-        const a = Object.assign(document.createElement('a'), { href: URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })), download: 'story-map.json' });
-        a.click();
-    }
-    function importJSON(event) {
-        const reader = new FileReader();
-        reader.onload = e => { data = JSON.parse(e.target.result); saveData(); };
-        reader.readAsText(event.target.files[0]);
-    }
-
     // ── DELETE ────────────────────────────────────────────────────────────────
     function deleteItem(type, pId, oId, eId, sId) {
         if (!confirm("Delete this?")) return;
@@ -361,7 +365,7 @@
                 <div class="persona-header">
                     <div class="clickable" onclick="openPersonaModal(${persona.id})">
                         <span class="persona-name">👤 ${persona.name}</span>
-                        <span class="persona-desc ${persona.desc ? 'has-content' : ''}">${persona.desc || 'Add a description...'}</span>
+                        <span class="persona-desc ${persona.desc ? 'filled' : 'empty'}">${persona.desc || 'Add a description...'}</span>
                     </div>
                     <button class="del-btn" onclick="deleteItem('persona',${persona.id})">×</button>
                 </div>
@@ -402,7 +406,6 @@
         });
     }
 
-    initRepoHandle();
     render();
 </script>
 </body>
