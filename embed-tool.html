@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Story Mapper — Embed Tool</title>
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            background: #f0f2f5;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-start;
+            padding: 40px 20px;
+        }
+
+        .card {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            padding: 32px;
+            width: 100%;
+            max-width: 680px;
+        }
+
+        .card-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 24px;
+            padding-bottom: 16px;
+            border-bottom: 2px solid #f0f2f5;
+        }
+
+        .card-header h1 { font-size: 1.2rem; color: #2c3e50; }
+        .card-header .icon { font-size: 1.5rem; }
+
+        .back-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 13px;
+            color: #2980b9;
+            text-decoration: none;
+            margin-bottom: 24px;
+        }
+        .back-link:hover { text-decoration: underline; }
+
+        .step {
+            display: flex;
+            gap: 14px;
+            margin-bottom: 20px;
+            align-items: flex-start;
+        }
+        .step-num {
+            background: #2980b9;
+            color: white;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: 700;
+            margin-top: 2px;
+        }
+        .step-text { font-size: 13px; color: #555; line-height: 1.6; }
+        .step-text strong { color: #2c3e50; }
+        .step-text code {
+            background: #eef2f7;
+            padding: 1px 5px;
+            border-radius: 4px;
+            font-size: 12px;
+            color: #8e44ad;
+        }
+
+        .divider { border: none; border-top: 1px solid #eee; margin: 24px 0; }
+
+        label {
+            display: block;
+            font-size: 12px;
+            font-weight: 700;
+            color: #555;
+            margin-bottom: 6px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        textarea {
+            width: 100%;
+            height: 280px;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 12px;
+            font-family: 'Courier New', monospace;
+            resize: vertical;
+            background: #fafafa;
+            color: #2c3e50;
+            transition: border-color 0.2s;
+            outline: none;
+        }
+        textarea:focus { border-color: #2980b9; background: white; }
+        textarea.valid { border-color: #27ae60; background: #f5fff8; }
+        textarea.error { border-color: #e74c3c; background: #fff5f5; }
+
+        .status {
+            font-size: 12px;
+            min-height: 20px;
+            margin-top: 6px;
+            margin-bottom: 16px;
+        }
+        .status.ok  { color: #27ae60; }
+        .status.err { color: #e74c3c; }
+
+        .btn-row { display: flex; gap: 10px; flex-wrap: wrap; }
+
+        button {
+            cursor: pointer;
+            border: none;
+            border-radius: 8px;
+            padding: 10px 18px;
+            font-size: 13px;
+            font-family: inherit;
+            font-weight: 600;
+            transition: opacity 0.15s;
+        }
+        button:hover { opacity: 0.85; }
+        .btn-blue   { background: #2980b9; color: white; }
+        .btn-green  { background: #27ae60; color: white; }
+        .btn-grey   { background: #ecf0f1; color: #555; }
+
+        .result-box {
+            display: none;
+            margin-top: 24px;
+            background: #f0fff4;
+            border: 1px solid #27ae60;
+            border-radius: 8px;
+            padding: 16px;
+            font-size: 13px;
+            color: #2c3e50;
+            line-height: 1.7;
+        }
+        .result-box.show { display: block; }
+        .result-box strong { color: #27ae60; }
+
+        .warning-box {
+            background: #fff8e1;
+            border: 1px solid #f39c12;
+            border-radius: 8px;
+            padding: 12px 16px;
+            font-size: 12px;
+            color: #7d6608;
+            margin-top: 16px;
+            line-height: 1.6;
+        }
+    </style>
+</head>
+<body>
+
+    <a class="back-link" href="dev.html">← Back to Story Mapper</a>
+
+    <div class="card">
+        <div class="card-header">
+            <span class="icon">📋</span>
+            <h1>Embed JSON for Deployment</h1>
+        </div>
+
+        <div class="step">
+            <div class="step-num">1</div>
+            <div class="step-text">Go to your Story Mapper board and click <strong>💾 Download JSON</strong> to export your current data.</div>
+        </div>
+        <div class="step">
+            <div class="step-num">2</div>
+            <div class="step-text">Open the downloaded <code>.json</code> file in a text editor, select all, and paste it into the box below.</div>
+        </div>
+        <div class="step">
+            <div class="step-num">3</div>
+            <div class="step-text">Click <strong>Generate Deployed HTML</strong> — a new <code>index.html</code> will download with your data baked in. Push that file to GitHub Pages.</div>
+        </div>
+
+        <hr class="divider">
+
+        <label>Paste your JSON here</label>
+        <textarea id="jsonInput" placeholder='[{"id":1,"name":"Persona","desc":"","outcomes":[]}]' oninput="validate()"></textarea>
+        <div id="status" class="status"></div>
+
+        <div class="btn-row">
+            <button class="btn-blue" onclick="generate()">⚡ Generate Deployed HTML</button>
+            <button class="btn-grey" onclick="clearInput()">Clear</button>
+        </div>
+
+        <div id="result" class="result-box">
+            ✅ <strong>Done!</strong> Your file <code>story-mapper-deployed.html</code> has been downloaded.<br>
+            Rename it to <code>index.html</code>, push it to your GitHub Pages repo, and your board will load with the pre-filled content.
+        </div>
+
+        <div class="warning-box">
+            ⚠️ <strong>Note:</strong> GitHub Pages serves static files — visitors can still edit the board in their browser, but changes are stored in <em>their</em> localStorage only. To update the deployed content, repeat this process and push a new file.
+        </div>
+    </div>
+
+<script>
+    // ── The full Story Mapper HTML template ───────────────────────────────────
+    // When generating, we inject EMBEDDED_DATA into this template.
+    // This is a self-contained copy of dev.html with the EMBEDDED_DATA slot.
+    const TEMPLATE_URL = 'dev.html';
+
+    function validate() {
+        const raw = document.getElementById('jsonInput').value.trim();
+        const status = document.getElementById('status');
+        const ta = document.getElementById('jsonInput');
+        if (!raw) { status.textContent = ''; status.className = 'status'; ta.className = ''; return null; }
+        try {
+            const parsed = JSON.parse(raw);
+            if (!Array.isArray(parsed)) throw new Error('Root must be a JSON array [ ... ]');
+            status.textContent = `✅ Valid — ${parsed.length} persona(s), ready to embed`;
+            status.className = 'status ok';
+            ta.className = 'valid';
+            return parsed;
+        } catch(e) {
+            status.textContent = `❌ Invalid JSON: ${e.message}`;
+            status.className = 'status err';
+            ta.className = 'error';
+            return null;
+        }
+    }
+
+    async function generate() {
+        const parsed = validate();
+        if (!parsed) { alert('Please fix the JSON errors before generating.'); return; }
+
+        // Fetch the main index.html and patch EMBEDDED_DATA into it
+        let src;
+        try {
+            const res = await fetch(TEMPLATE_URL);
+            if (!res.ok) throw new Error(`Could not load ${TEMPLATE_URL} (${res.status})`);
+            src = await res.text();
+        } catch(e) {
+            alert(`Could not read index.html: ${e.message}\n\nMake sure both files are served from the same folder (not opened as file://).`);
+            return;
+        }
+
+        const jsonString = JSON.stringify(parsed, null, 4)
+            .split('\n').map((l, i) => i === 0 ? l : '    ' + l).join('\n');
+
+        // Replace the EMBEDDED_DATA = null line
+        let patched = src.replace(
+            /const EMBEDDED_DATA = null;/,
+            `const EMBEDDED_DATA = ${jsonString};`
+        );
+
+        // NEW: Strip out the entire <header> tag and all of its contents (buttons, title, etc.)
+        patched = patched.replace(/<header>[\s\S]*?<\/header>/gi, '');
+
+        // Use a slight variation of the original check to ensure the replacement happened
+        if (!patched.includes('const EMBEDDED_DATA = [')) {
+            alert('Could not find the EMBEDDED_DATA slot in index.html.\nMake sure index.html contains: const EMBEDDED_DATA = null;');
+            return;
+        }
+
+        download('index.html', patched);
+        document.getElementById('result').classList.add('show');
+    }
+
+    function download(filename, content) {
+        const a = Object.assign(document.createElement('a'), {
+            href: URL.createObjectURL(new Blob([content], { type: 'text/html' })),
+            download: filename
+        });
+        a.click();
+    }
+
+    function clearInput() {
+        document.getElementById('jsonInput').value = '';
+        document.getElementById('jsonInput').className = '';
+        document.getElementById('status').textContent = '';
+        document.getElementById('status').className = 'status';
+        document.getElementById('result').classList.remove('show');
+    }
+</script>
+</body>
+</html>

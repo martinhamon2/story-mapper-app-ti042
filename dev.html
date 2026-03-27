@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Story Mapper App</title>
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body { font-family: 'Segoe UI', sans-serif; background: #f0f2f5; }
+
+        header { background: #2c3e50; color: white; padding: 12px 20px; display: flex; align-items: center; gap: 8px; position: sticky; top: 0; z-index: 100; flex-wrap: wrap; }
+        header h2 { margin-right: auto; font-size: 1rem; }
+
+        button { cursor: pointer; border: none; border-radius: 6px; padding: 7px 13px; font-size: 13px; font-family: inherit; }
+        .btn-main   { background: #2980b9; color: white; font-weight: 600; white-space: nowrap; }
+        .btn-dark   { background: #34495e; color: white; white-space: nowrap; }
+        .btn-green  { background: #27ae60; color: white; white-space: nowrap; }
+        .btn-orange { background: #e67e22; color: white; white-space: nowrap; }
+        .btn-main:hover, .btn-dark:hover, .btn-green:hover, .btn-orange:hover { opacity: .85; }
+        .btn-add    { background: #ecf0f1; border: 1px dashed #bbb; color: #555; width: 100%; margin-top: 6px; }
+        .btn-add:hover { background: #d5e8f3; border-color: #2980b9; }
+        .btn-cancel { background: #ddd; }
+        .del-btn    { background: none; color: #bbb; font-size: 15px; padding: 0 3px; line-height: 1; }
+        .del-btn:hover { color: #e74c3c; }
+        .btn-group  { display: flex; gap: 8px; margin-top: 8px; }
+
+        .sep { width: 1px; height: 24px; background: rgba(255,255,255,.2); flex-shrink: 0; }
+
+        /* Embed tool link in header */
+        .embed-link {
+            color: rgba(255,255,255,0.6); font-size: 12px; text-decoration: none;
+            border: 1px solid rgba(255,255,255,0.2); border-radius: 6px;
+            padding: 5px 10px; white-space: nowrap;
+        }
+        .embed-link:hover { color: white; border-color: rgba(255,255,255,0.5); }
+
+        #toast {
+            display: none; position: fixed; bottom: 20px; right: 20px; z-index: 999;
+            background: #2c3e50; color: white; padding: 10px 16px; border-radius: 8px;
+            font-size: 13px; box-shadow: 0 4px 12px rgba(0,0,0,.25); max-width: 320px;
+        }
+        #toast.show { display: block; }
+
+        .board { padding: 20px; display: flex; flex-direction: column; gap: 20px; }
+
+        .persona-row { background: white; border-radius: 10px; padding: 16px; box-shadow: 0 2px 8px rgba(0,0,0,.08); }
+        .persona-header { background: #eaf0fb; border-radius: 8px; padding: 12px; margin-bottom: 12px; cursor: pointer; display: flex; justify-content: space-between; align-items: flex-start; }
+        .persona-name { font-weight: 700; font-size: 15px; display: block; }
+        .persona-desc { font-size: 12px; margin-top: 3px; display: block; }
+        .persona-desc.empty { color: #bbb; font-style: italic; }
+        .persona-desc.filled { color: #666; }
+
+        .outcome-container { margin: 10px 0; border-left: 3px solid #2980b9; padding-left: 12px; }
+        .outcome-title { font-weight: 600; font-size: 13px; color: #2c3e50; display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+
+        .epics-grid { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 8px; }
+        .epic-column { background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px; padding: 10px; min-width: 160px; }
+        .epic-header { font-weight: 600; font-size: 12px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #dee2e6; padding-bottom: 6px; margin-bottom: 8px; }
+
+        .story-card { background: white; border: 1px solid #ddd; border-radius: 6px; padding: 8px; margin-bottom: 6px; font-size: 12px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; }
+        .story-card:hover { background: #e9f5ff; border-color: #2980b9; }
+
+        .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.5); z-index: 200; justify-content: center; align-items: center; }
+        .modal-content { background: white; border-radius: 10px; padding: 24px; width: 480px; max-width: 95vw; max-height: 90vh; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
+        .modal-header { display: flex; justify-content: space-between; align-items: center; }
+        .modal-header h3 { font-size: 15px; }
+        .modal-header button { background: none; font-size: 20px; color: #555; }
+
+        label { font-size: 12px; font-weight: 600; color: #555; }
+        input[type=text], textarea { width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 6px; font-size: 13px; font-family: inherit; }
+        textarea::placeholder, input::placeholder { color: #bbb; font-style: italic; }
+        .mockup-preview { max-width: 100%; border-radius: 6px; margin-top: 6px; }
+
+        .clickable { cursor: pointer; }
+    </style>
+</head>
+<body>
+
+<header>
+    <h2>Story Mapping - ti042</h2>
+
+    <button class="btn-dark" onclick="exportJSON()">💾 Download JSON</button>
+    <button class="btn-dark" onclick="document.getElementById('importFile').click()">📂 Load JSON</button>
+    <input type="file" id="importFile" style="display:none" onchange="importJSON(event)">
+
+    <div class="sep"></div>
+
+    <button class="btn-main"   onclick="addPersona()">+ New Persona</button>
+    <button class="btn-green"  onclick="saveVersion()">💾 Save My Version</button>
+    <button class="btn-orange" onclick="mergeAllFromFolder()">🔀 Merge All</button>
+
+    <div class="sep"></div>
+
+    <a class="embed-link" href="embed-tool.html">📋 Embed for Deploy</a>
+</header>
+
+<div class="board" id="board"></div>
+<div id="toast"></div>
+
+<div id="editModal" class="modal-overlay">
+    <div class="modal-content" id="modalBody"></div>
+</div>
+
+<script>
+    // ── EMBEDDED DATA ─────────────────────────────────────────────────────────
+    // Use embed-tool.html to generate a deployed version with data baked in here.
+    // DO NOT edit this line manually — let the embed tool do it.
+    const EMBEDDED_DATA = null;
+    // ─────────────────────────────────────────────────────────────────────────
+
+    // Load order: localStorage (live edits) → EMBEDDED_DATA → empty board
+    let data = JSON.parse(localStorage.getItem('storyMapData_v6'))
+             ?? (EMBEDDED_DATA ? JSON.parse(JSON.stringify(EMBEDDED_DATA)) : []);
+
+    // ── UTILS ─────────────────────────────────────────────────────────────────
+    function touch(item) { item.updatedAt = Date.now(); return item; }
+    function randId() { return Math.random().toString(36).slice(2, 6).toUpperCase(); }
+    function versionedFilename() {
+        const ts = new Date().toISOString().replace(/[-:T]/g, '').slice(0, 12);
+        return `map-${ts}-${randId()}.json`;
+    }
+    function showToast(msg, duration = 4000) {
+        const t = document.getElementById('toast');
+        t.textContent = msg;
+        t.classList.add('show');
+        clearTimeout(t._timer);
+        t._timer = setTimeout(() => t.classList.remove('show'), duration);
+    }
+
+    // ── MERGE LOGIC ───────────────────────────────────────────────────────────
+    function childKeyFor(key) {
+        return key === 'outcomes' ? 'epics' : key === 'epics' ? 'stories' : null;
+    }
+    function fingerprint(item, childKey) {
+        const { id, updatedAt, [childKey]: _c, ...fields } = item;
+        return JSON.stringify(fields).toLowerCase().trim();
+    }
+    function mergeItems(local, remote, childKey) {
+        const merged = local.map(i => ({ ...i }));
+        for (const rItem of remote) {
+            const byId = merged.findIndex(l => l.id === rItem.id);
+            if (byId !== -1) {
+                const lItem = merged[byId];
+                if ((rItem.updatedAt || 0) > (lItem.updatedAt || 0)) {
+                    const { [childKey]: _rc, ...rScalars } = rItem;
+                    merged[byId] = { ...lItem, ...rScalars };
+                }
+                if (childKey) {
+                    merged[byId][childKey] = mergeItems(
+                        merged[byId][childKey] || [],
+                        rItem[childKey] || [],
+                        childKeyFor(childKey)
+                    );
+                }
+                continue;
+            }
+            const rFp = fingerprint(rItem, childKey);
+            const byContent = merged.findIndex(l => fingerprint(l, childKey) === rFp);
+            if (byContent !== -1) {
+                const lItem = merged[byContent];
+                const keepId = Math.min(lItem.id, rItem.id);
+                const newerItem = (rItem.updatedAt || 0) > (lItem.updatedAt || 0) ? rItem : lItem;
+                const { [childKey]: _rc, ...newerScalars } = newerItem;
+                merged[byContent] = { ...lItem, ...newerScalars, id: keepId };
+                if (childKey) {
+                    merged[byContent][childKey] = mergeItems(
+                        lItem[childKey] || [],
+                        rItem[childKey] || [],
+                        childKeyFor(childKey)
+                    );
+                }
+                continue;
+            }
+            merged.push({ ...rItem });
+        }
+        return merged;
+    }
+    function mergeData(local, remote) { return mergeItems(local, remote, 'outcomes'); }
+    function mergeAll(datasets) { return datasets.reduce((acc, cur) => mergeData(acc, cur), []); }
+
+    // ── VERSIONED SAVE ────────────────────────────────────────────────────────
+    async function saveVersion() {
+        if (!window.showSaveFilePicker) { alert('Use Chrome or Edge for this feature.'); return; }
+        try {
+            const handle = await window.showSaveFilePicker({
+                suggestedName: versionedFilename(),
+                types: [{ description: 'JSON', accept: { 'application/json': ['.json'] } }]
+            });
+            const w = await handle.createWritable();
+            await w.write(JSON.stringify(data, null, 2));
+            await w.close();
+            showToast(`✅ Saved as: ${handle.name}`);
+        } catch(e) { if (e.name !== 'AbortError') alert('Save failed: ' + e.message); }
+    }
+
+    // ── MERGE ALL ─────────────────────────────────────────────────────────────
+    async function mergeAllFromFolder() {
+        if (!window.showOpenFilePicker) { alert('Use Chrome or Edge for this feature.'); return; }
+        try {
+            const handles = await window.showOpenFilePicker({
+                multiple: true,
+                types: [{ description: 'JSON Files', accept: { 'application/json': ['.json'] } }]
+            });
+            if (!handles.length) return;
+            const datasets = [];
+            for (const h of handles) {
+                try {
+                    const text = await (await h.getFile()).text();
+                    const parsed = JSON.parse(text);
+                    if (Array.isArray(parsed)) datasets.push(parsed);
+                } catch { }
+            }
+            if (!datasets.length) { showToast('⚠️ No valid map files found.'); return; }
+            const beforeIds = new Set(data.map(p => p.id));
+            data = mergeAll([data, ...datasets]);
+            const added = data.filter(p => !beforeIds.has(p.id)).length;
+            saveData();
+            showToast(`✅ Merged ${datasets.length} file(s) — ${added > 0 ? `${added} new persona(s) added` : 'no duplicates'}`);
+        } catch(e) { if (e.name !== 'AbortError') alert('Merge failed: ' + e.message); }
+    }
+
+    // ── IMPORT / EXPORT ───────────────────────────────────────────────────────
+    function exportJSON() {
+        const a = Object.assign(document.createElement('a'), {
+            href: URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })),
+            download: 'story-map.json'
+        });
+        a.click();
+    }
+    function importJSON(event) {
+        const reader = new FileReader();
+        reader.onload = e => { data = JSON.parse(e.target.result); saveData(); };
+        reader.readAsText(event.target.files[0]);
+    }
+
+    // ── DATA ──────────────────────────────────────────────────────────────────
+    function saveData() { localStorage.setItem('storyMapData_v6', JSON.stringify(data)); render(); }
+    function closeModal() { document.getElementById('editModal').style.display = 'none'; }
+
+    // ── PERSONA ───────────────────────────────────────────────────────────────
+    function addPersona() {
+        const name = prompt("Persona Name:");
+        if (name) { data.push(touch({ id: Date.now(), name, desc: '', outcomes: [] })); saveData(); }
+    }
+    function openPersonaModal(pId) {
+        const p = data.find(x => x.id === pId);
+        document.getElementById('modalBody').innerHTML = `
+            <div class="modal-header"><h3>Edit Persona</h3><button onclick="closeModal()">✕</button></div>
+            <label>Name</label><input type="text" id="editName" value="${p.name}">
+            <label>Description</label><textarea id="editDesc" rows="4" placeholder="Add a description...">${p.desc || ''}</textarea>
+            <div class="btn-group">
+                <button class="btn-main" onclick="savePersona(${pId})">Save</button>
+                <button class="btn-cancel" onclick="closeModal()">Cancel</button>
+            </div>`;
+        document.getElementById('editModal').style.display = 'flex';
+    }
+    function savePersona(pId) {
+        const p = data.find(x => x.id === pId);
+        p.name = document.getElementById('editName').value;
+        p.desc = document.getElementById('editDesc').value;
+        touch(p); closeModal(); saveData();
+    }
+
+    // ── OUTCOME ───────────────────────────────────────────────────────────────
+    function addOutcome(pId) {
+        const name = prompt("Outcome Name:");
+        if (name) { data.find(x => x.id === pId).outcomes.push(touch({ id: Date.now(), name, epics: [] })); saveData(); }
+    }
+    function openOutcomeModal(pId, oId) {
+        const o = data.find(p => p.id === pId).outcomes.find(o => o.id === oId);
+        document.getElementById('modalBody').innerHTML = `
+            <div class="modal-header"><h3>Edit Outcome</h3><button onclick="closeModal()">✕</button></div>
+            <label>Outcome Title</label><input type="text" id="editOutName" value="${o.name}">
+            <div class="btn-group">
+                <button class="btn-main" onclick="saveOutcome(${pId},${oId})">Save</button>
+                <button class="btn-cancel" onclick="closeModal()">Cancel</button>
+            </div>`;
+        document.getElementById('editModal').style.display = 'flex';
+    }
+    function saveOutcome(pId, oId) {
+        const o = data.find(p => p.id === pId).outcomes.find(o => o.id === oId);
+        o.name = document.getElementById('editOutName').value;
+        touch(o); closeModal(); saveData();
+    }
+
+    // ── EPIC ──────────────────────────────────────────────────────────────────
+    function addEpic(pId, oId) {
+        const name = prompt("Epic Name:");
+        if (name) { data.find(p => p.id === pId).outcomes.find(o => o.id === oId).epics.push(touch({ id: Date.now(), name, stories: [] })); saveData(); }
+    }
+    function openEpicModal(pId, oId, eId) {
+        const e = data.find(p => p.id === pId).outcomes.find(o => o.id === oId).epics.find(e => e.id === eId);
+        document.getElementById('modalBody').innerHTML = `
+            <div class="modal-header"><h3>Edit Epic</h3><button onclick="closeModal()">✕</button></div>
+            <label>Epic Title</label><input type="text" id="editEpicName" value="${e.name}">
+            <div class="btn-group">
+                <button class="btn-main" onclick="saveEpic(${pId},${oId},${eId})">Save</button>
+                <button class="btn-cancel" onclick="closeModal()">Cancel</button>
+            </div>`;
+        document.getElementById('editModal').style.display = 'flex';
+    }
+    function saveEpic(pId, oId, eId) {
+        const e = data.find(p => p.id === pId).outcomes.find(o => o.id === oId).epics.find(e => e.id === eId);
+        e.name = document.getElementById('editEpicName').value;
+        touch(e); closeModal(); saveData();
+    }
+
+    // ── STORY ─────────────────────────────────────────────────────────────────
+    function addStory(pId, oId, eId) {
+        const title = prompt("Story Title:");
+        if (title) { data.find(p => p.id === pId).outcomes.find(o => o.id === oId).epics.find(e => e.id === eId).stories.push(touch({ id: Date.now(), title, desc: '', ac: '', mockup: '' })); saveData(); }
+    }
+    function openStoryModal(pId, oId, eId, sId) {
+        const s = data.find(p => p.id === pId).outcomes.find(o => o.id === oId).epics.find(e => e.id === eId).stories.find(s => s.id === sId);
+        document.getElementById('modalBody').innerHTML = `
+            <div class="modal-header"><h3>Edit Story</h3><button onclick="closeModal()">✕</button></div>
+            <label>Title</label><input type="text" id="sTitle" value="${s.title}">
+            <label>Description</label><textarea id="sDesc" rows="3" placeholder="Add a description...">${s.desc || ''}</textarea>
+            <label>Acceptance Criteria</label><textarea id="sAC" rows="4" placeholder="Add acceptance criteria...">${s.ac || ''}</textarea>
+            <label>Mockup UI</label><input type="file" accept="image/*" onchange="handleImage(event)">
+            <img id="sMock" class="mockup-preview" src="${s.mockup || ''}" style="display:${s.mockup ? 'block' : 'none'}">
+            <div class="btn-group">
+                <button class="btn-main" onclick="saveStory(${pId},${oId},${eId},${sId})">Save</button>
+                <button class="btn-cancel" onclick="closeModal()">Cancel</button>
+            </div>`;
+        document.getElementById('editModal').style.display = 'flex';
+    }
+    function handleImage(e) {
+        const reader = new FileReader();
+        reader.onload = () => { const img = document.getElementById('sMock'); img.src = reader.result; img.style.display = 'block'; };
+        reader.readAsDataURL(e.target.files[0]);
+    }
+    function saveStory(pId, oId, eId, sId) {
+        const s = data.find(p => p.id === pId).outcomes.find(o => o.id === oId).epics.find(e => e.id === eId).stories.find(s => s.id === sId);
+        s.title  = document.getElementById('sTitle').value;
+        s.desc   = document.getElementById('sDesc').value;
+        s.ac     = document.getElementById('sAC').value;
+        s.mockup = document.getElementById('sMock').src;
+        touch(s); closeModal(); saveData();
+    }
+
+    // ── DELETE ────────────────────────────────────────────────────────────────
+    function deleteItem(type, pId, oId, eId, sId) {
+        if (!confirm("Delete this?")) return;
+        if      (type === 'persona') data = data.filter(p => p.id !== pId);
+        else if (type === 'outcome') data.find(p => p.id === pId).outcomes = data.find(p => p.id === pId).outcomes.filter(o => o.id !== oId);
+        else if (type === 'epic')    data.find(p => p.id === pId).outcomes.find(o => o.id === oId).epics = data.find(p => p.id === pId).outcomes.find(o => o.id === oId).epics.filter(e => e.id !== eId);
+        else                         data.find(p => p.id === pId).outcomes.find(o => o.id === oId).epics.find(e => e.id === eId).stories = data.find(p => p.id === pId).outcomes.find(o => o.id === oId).epics.find(e => e.id === eId).stories.filter(s => s.id !== sId);
+        saveData();
+    }
+
+    // ── RENDER ────────────────────────────────────────────────────────────────
+    function render() {
+        const board = document.getElementById('board');
+        board.innerHTML = '';
+        data.forEach(persona => {
+            const pRow = document.createElement('div');
+            pRow.className = 'persona-row';
+            pRow.innerHTML = `
+                <div class="persona-header">
+                    <div class="clickable" onclick="openPersonaModal(${persona.id})">
+                        <span class="persona-name">👤 ${persona.name}</span>
+                        <span class="persona-desc ${persona.desc ? 'filled' : 'empty'}">${persona.desc || 'Add a description...'}</span>
+                    </div>
+                    <button class="del-btn" onclick="deleteItem('persona',${persona.id})">×</button>
+                </div>
+                <div id="o-${persona.id}"></div>
+                <button class="btn-main" onclick="addOutcome(${persona.id})">+ Outcome</button>`;
+            persona.outcomes.forEach(outcome => {
+                const oDiv = document.createElement('div');
+                oDiv.className = 'outcome-container';
+                oDiv.innerHTML = `
+                    <div class="outcome-title">
+                        <span class="clickable" onclick="openOutcomeModal(${persona.id},${outcome.id})">Outcome: ${outcome.name}</span>
+                        <button class="del-btn" onclick="deleteItem('outcome',${persona.id},${outcome.id})">×</button>
+                    </div>
+                    <div class="epics-grid" id="e-${outcome.id}"></div>
+                    <button class="btn-add" onclick="addEpic(${persona.id},${outcome.id})">+ Epic</button>`;
+                outcome.epics.forEach(epic => {
+                    const eCol = document.createElement('div');
+                    eCol.className = 'epic-column';
+                    eCol.innerHTML = `
+                        <div class="epic-header">
+                            <span class="clickable" onclick="openEpicModal(${persona.id},${outcome.id},${epic.id})">${epic.name}</span>
+                            <button class="del-btn" onclick="deleteItem('epic',${persona.id},${outcome.id},${epic.id})">×</button>
+                        </div>
+                        <div id="s-${epic.id}"></div>
+                        <button class="btn-add" onclick="addStory(${persona.id},${outcome.id},${epic.id})">+ Story</button>`;
+                    epic.stories.forEach(story => {
+                        const sCard = document.createElement('div');
+                        sCard.className = 'story-card clickable';
+                        sCard.onclick = () => openStoryModal(persona.id, outcome.id, epic.id, story.id);
+                        sCard.innerHTML = `<span>${story.title}</span><button class="del-btn" onclick="event.stopPropagation();deleteItem('story',${persona.id},${outcome.id},${epic.id},${story.id})">×</button>`;
+                        eCol.querySelector(`#s-${epic.id}`).appendChild(sCard);
+                    });
+                    oDiv.querySelector(`#e-${outcome.id}`).appendChild(eCol);
+                });
+                pRow.querySelector(`#o-${persona.id}`).appendChild(oDiv);
+            });
+            board.appendChild(pRow);
+        });
+    }
+
+    render();
+</script>
+</body>
+</html>
