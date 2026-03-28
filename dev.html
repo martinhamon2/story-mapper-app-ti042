@@ -27,7 +27,6 @@
 
         .sep { width: 1px; height: 24px; background: rgba(255,255,255,.2); flex-shrink: 0; }
 
-        /* Embed tool link in header */
         .embed-link {
             color: rgba(255,255,255,0.6); font-size: 12px; text-decoration: none;
             border: 1px solid rgba(255,255,255,0.2); border-radius: 6px;
@@ -70,9 +69,49 @@
         label { font-size: 12px; font-weight: 600; color: #555; }
         input[type=text], textarea { width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 6px; font-size: 13px; font-family: inherit; }
         textarea::placeholder, input::placeholder { color: #bbb; font-style: italic; }
-        .mockup-preview { max-width: 100%; border-radius: 6px; margin-top: 6px; }
+
+        .mockup-preview {
+            max-width: 100%; border-radius: 6px; margin-top: 6px;
+            cursor: zoom-in;
+            transition: opacity 0.15s;
+        }
+        .mockup-preview:hover { opacity: 0.85; }
 
         .clickable { cursor: pointer; }
+
+        /* Lightbox */
+        #lightbox {
+            display: none;
+            position: fixed;
+            inset: 0;
+            z-index: 500;
+            background: rgba(0,0,0,.85);
+            justify-content: center;
+            align-items: center;
+            cursor: zoom-out;
+        }
+        #lightbox.open { display: flex; }
+        #lightbox img {
+            max-width: 90vw;
+            max-height: 90vh;
+            border-radius: 8px;
+            box-shadow: 0 8px 40px rgba(0,0,0,.6);
+            object-fit: contain;
+            cursor: default;
+        }
+        #lightbox-close {
+            position: absolute;
+            top: 16px;
+            right: 20px;
+            color: white;
+            font-size: 32px;
+            line-height: 1;
+            cursor: pointer;
+            background: none;
+            border: none;
+            opacity: 0.8;
+        }
+        #lightbox-close:hover { opacity: 1; }
     </style>
 </head>
 <body>
@@ -102,14 +141,17 @@
     <div class="modal-content" id="modalBody"></div>
 </div>
 
+<!-- Lightbox -->
+<div id="lightbox" onclick="closeLightbox()">
+    <button id="lightbox-close" onclick="closeLightbox()">✕</button>
+    <img id="lightbox-img" src="" alt="Mockup preview" onclick="event.stopPropagation()">
+</div>
+
 <script>
     // ── EMBEDDED DATA ─────────────────────────────────────────────────────────
-    // Use embed-tool.html to generate a deployed version with data baked in here.
-    // DO NOT edit this line manually — let the embed tool do it.
     const EMBEDDED_DATA = null;
     // ─────────────────────────────────────────────────────────────────────────
 
-    // Load order: localStorage (live edits) → EMBEDDED_DATA → empty board
     let data = JSON.parse(localStorage.getItem('storyMapData_v6'))
              ?? (EMBEDDED_DATA ? JSON.parse(JSON.stringify(EMBEDDED_DATA)) : []);
 
@@ -127,6 +169,16 @@
         clearTimeout(t._timer);
         t._timer = setTimeout(() => t.classList.remove('show'), duration);
     }
+
+    // ── LIGHTBOX ──────────────────────────────────────────────────────────────
+    function openLightbox(src) {
+        document.getElementById('lightbox-img').src = src;
+        document.getElementById('lightbox').classList.add('open');
+    }
+    function closeLightbox() {
+        document.getElementById('lightbox').classList.remove('open');
+    }
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') closeLightbox(); });
 
     // ── MERGE LOGIC ───────────────────────────────────────────────────────────
     function childKeyFor(key) {
@@ -319,7 +371,7 @@
             <label>Description</label><textarea id="sDesc" rows="3" placeholder="Add a description...">${s.desc || ''}</textarea>
             <label>Acceptance Criteria</label><textarea id="sAC" rows="4" placeholder="Add acceptance criteria...">${s.ac || ''}</textarea>
             <label>Mockup UI</label><input type="file" accept="image/*" onchange="handleImage(event)">
-            <img id="sMock" class="mockup-preview" src="${s.mockup || ''}" style="display:${s.mockup ? 'block' : 'none'}">
+            <img id="sMock" class="mockup-preview" src="${s.mockup || ''}" style="display:${s.mockup ? 'block' : 'none'}" onclick="openLightbox(this.src)" title="Click to enlarge">
             <div class="btn-group">
                 <button class="btn-main" onclick="saveStory(${pId},${oId},${eId},${sId})">Save</button>
                 <button class="btn-cancel" onclick="closeModal()">Cancel</button>
@@ -328,7 +380,11 @@
     }
     function handleImage(e) {
         const reader = new FileReader();
-        reader.onload = () => { const img = document.getElementById('sMock'); img.src = reader.result; img.style.display = 'block'; };
+        reader.onload = () => {
+            const img = document.getElementById('sMock');
+            img.src = reader.result;
+            img.style.display = 'block';
+        };
         reader.readAsDataURL(e.target.files[0]);
     }
     function saveStory(pId, oId, eId, sId) {
