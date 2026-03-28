@@ -67,7 +67,8 @@
         .modal-header button { background: none; font-size: 20px; color: #555; }
 
         label { font-size: 12px; font-weight: 600; color: #555; }
-        input[type=text], textarea { width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 6px; font-size: 13px; font-family: inherit; }
+        
+        input[type=text], textarea { width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 6px; font-size: 13px; font-family: inherit; resize: vertical; }
         textarea::placeholder, input::placeholder { color: #bbb; font-style: italic; }
 
         .mockup-preview {
@@ -141,7 +142,6 @@
     <div class="modal-content" id="modalBody"></div>
 </div>
 
-<!-- Lightbox -->
 <div id="lightbox" onclick="closeLightbox()">
     <button id="lightbox-close" onclick="closeLightbox()">✕</button>
     <img id="lightbox-img" src="" alt="Mockup preview" onclick="event.stopPropagation()">
@@ -363,13 +363,18 @@
         const title = prompt("Story Title:");
         if (title) { data.find(p => p.id === pId).outcomes.find(o => o.id === oId).epics.find(e => e.id === eId).stories.push(touch({ id: Date.now(), title, desc: '', ac: '', mockup: '' })); saveData(); }
     }
+    
     function openStoryModal(pId, oId, eId, sId) {
         const s = data.find(p => p.id === pId).outcomes.find(o => o.id === oId).epics.find(e => e.id === eId).stories.find(s => s.id === sId);
+        
+        // FORCED MIN-HEIGHTS applied directly via inline style so the boxes are undeniably large
         document.getElementById('modalBody').innerHTML = `
             <div class="modal-header"><h3>Edit Story</h3><button onclick="closeModal()">✕</button></div>
             <label>Title</label><input type="text" id="sTitle" value="${s.title}">
-            <label>Description</label><textarea id="sDesc" rows="3" placeholder="Add a description...">${s.desc || ''}</textarea>
-            <label>Acceptance Criteria</label><textarea id="sAC" rows="4" placeholder="Add acceptance criteria...">${s.ac || ''}</textarea>
+            <label>Description</label>
+            <textarea id="sDesc" style="min-height: 80px;" placeholder="Add a description...">${s.desc || ''}</textarea>
+            <label>Acceptance Criteria</label>
+            <textarea id="sAC" style="min-height: 125px;" placeholder="Add acceptance criteria...">${s.ac || ''}</textarea>
             <label>Mockup UI</label><input type="file" accept="image/*" onchange="handleImage(event)">
             <img id="sMock" class="mockup-preview" src="${s.mockup || ''}" style="display:${s.mockup ? 'block' : 'none'}" onclick="openLightbox(this.src)" title="Click to enlarge">
             <div class="btn-group">
@@ -378,6 +383,7 @@
             </div>`;
         document.getElementById('editModal').style.display = 'flex';
     }
+
     function handleImage(e) {
         const reader = new FileReader();
         reader.onload = () => {
